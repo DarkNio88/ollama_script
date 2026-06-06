@@ -10,6 +10,9 @@ import subprocess
 import json
 import shlex
 import sys
+import urllib.request
+import difflib
+import argparse
 
 
 def get_models():
@@ -54,6 +57,30 @@ def run_rm(model):
         return p.returncode == 0
     except FileNotFoundError:
         return False
+
+
+def check_updates():
+    """Fetch the script from GitHub and compare to local file, printing a unified diff."""
+    raw_url = "https://raw.githubusercontent.com/DarkNio88/ollama_script/main/ollama_rm_interactive.py"
+    try:
+        with urllib.request.urlopen(raw_url, timeout=10) as resp:
+            remote = resp.read().decode('utf-8').splitlines()
+    except Exception as e:
+        print(f"Failed to fetch remote file: {e}")
+        return
+    try:
+        with open(__file__, 'r', encoding='utf-8') as f:
+            local = f.read().splitlines()
+    except Exception as e:
+        print(f"Failed to read local file: {e}")
+        return
+
+    if remote == local:
+        print("No updates found — local script is up to date.")
+        return
+
+    diff = difflib.unified_diff(local, remote, fromfile='local', tofile='remote', lineterm='')
+    print('\n'.join(diff))
 
 
 def curses_menu(stdscr, items):
@@ -116,6 +143,14 @@ def curses_menu(stdscr, items):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check-updates", action="store_true", help="Check for updates from GitHub repo")
+    args = parser.parse_args()
+
+    if args.check_updates:
+        check_updates()
+        return
+
     models = get_models()
     if not models:
         print("No models found.")

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Interactive Ollama model remover using a curses selector.
-creator: DarkNio88
 
 Usage: python3 ollama_rm_interactive.py
 
@@ -63,6 +62,7 @@ def run_rm(model):
 def check_updates():
     """Fetch the script from GitHub and compare to local file, printing a unified diff."""
     raw_url = "https://raw.githubusercontent.com/DarkNio88/ollama_script/main/ollama_rm_interactive.py"
+    creator = "DarkNio88"
     try:
         with urllib.request.urlopen(raw_url, timeout=10) as resp:
             remote = resp.read().decode('utf-8').splitlines()
@@ -77,11 +77,70 @@ def check_updates():
         return
 
     if remote == local:
-        print("No updates found — local script is up to date.")
+        print(f"No updates found — local script is up to date. (creator: {creator})")
         return
 
     diff = difflib.unified_diff(local, remote, fromfile='local', tofile='remote', lineterm='')
+    print(f"Creator: {creator}\n")
     print('\n'.join(diff))
+
+
+def notify_update_available():
+    """Quick check: if remote differs, print a short notification to console."""
+    raw_url = "https://raw.githubusercontent.com/DarkNio88/ollama_script/main/ollama_rm_interactive.py"
+    creator = "DarkNio88"
+    try:
+        with urllib.request.urlopen(raw_url, timeout=5) as resp:
+            remote = resp.read().decode('utf-8')
+    except Exception:
+        return
+    try:
+        with open(__file__, 'r', encoding='utf-8') as f:
+            local = f.read()
+    except Exception:
+        return
+    if remote != local:
+        print(f"[UPDATE] A newer version of ollama_rm_interactive.py is available (creator: {creator}). Run with --check-updates to see changes.")
+
+
+def apply_updates(auto=False):
+    """Fetch remote script and overwrite local file after confirmation.
+    If auto=True, do not ask for confirmation.
+    """
+    raw_url = "https://raw.githubusercontent.com/DarkNio88/ollama_script/main/ollama_rm_interactive.py"
+    creator = "DarkNio88"
+    try:
+        with urllib.request.urlopen(raw_url, timeout=10) as resp:
+            remote = resp.read().decode('utf-8')
+    except Exception as e:
+        print(f"Failed to fetch remote file: {e}")
+        return
+    try:
+        with open(__file__, 'r', encoding='utf-8') as f:
+            local = f.read()
+    except Exception as e:
+        print(f"Failed to read local file: {e}")
+        return
+    if remote == local:
+        print(f"Local script is already up to date. (creator: {creator})")
+        return
+    print(f"Remote version differs from local (creator: {creator}). Showing diff:\n")
+    diff = difflib.unified_diff(local.splitlines(), remote.splitlines(), fromfile='local', tofile='remote', lineterm='')
+    print('\n'.join(diff))
+    if not auto:
+        resp = input("Overwrite local script with remote version? [y/N]: ").strip().lower()
+        if resp != 'y':
+            print("Aborted update.")
+            return
+    # write backup
+    try:
+        with open(__file__ + '.bak', 'w', encoding='utf-8') as b:
+            b.write(local)
+        with open(__file__, 'w', encoding='utf-8') as f:
+            f.write(remote)
+        print("Update applied. Backup written to " + __file__ + ".bak")
+    except Exception as e:
+        print(f"Failed to write updated file: {e}")
 
 
 def curses_menu(stdscr, items):
@@ -146,11 +205,19 @@ def curses_menu(stdscr, items):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check-updates", action="store_true", help="Check for updates from GitHub repo")
+    parser.add_argument("--apply-updates", action="store_true", help="Fetch and apply updates from GitHub repo (asks confirmation)")
+    parser.add_argument("--yes-apply", action="store_true", help="Apply updates without confirmation")
     args = parser.parse_args()
 
     if args.check_updates:
         check_updates()
         return
+    if args.apply_updates:
+        apply_updates(auto=args.yes_apply)
+        return
+
+    # Notify user if remote script differs (non-blocking short check)
+    notify_update_available()
 
     models = get_models()
     if not models:

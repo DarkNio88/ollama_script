@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Interactive Ollama model remover using a curses selector.
+creator: DarkNio88
 
 Usage: python3 ollama_rm_interactive.py
 
